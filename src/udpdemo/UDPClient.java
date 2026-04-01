@@ -28,6 +28,8 @@ public class UDPClient {
         // Read data and print
         String receiveData = new String(receivePacket.getData());
         System.out.println("result: " + receiveData);
+
+        ds.close();
     }
 
 }

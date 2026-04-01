@@ -46,6 +46,8 @@ public class UDPServer {
         ds.send(sendPacket);
 
         System.out.println("[SERVER] Sending result to client.");
+
+        ds.close();
     }
     
 }
