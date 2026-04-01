@@ -2,11 +2,17 @@ package udpdemo;
 
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.HashMap;
+import java.util.Map;
 import java.net.DatagramPacket;
 
 public class UDPClient {
 
     public static void main(String[] args) throws Exception {
+        // Create params hashmap 
+        String[] acceptedParams = {"srvr-ip", "srvr-port", "resource-name", "segment-size"};
+        Map<String, String> params = createParamsHashMap(args, acceptedParams);
+
         final InetAddress IP_ADDR = InetAddress.getLocalHost();
         final int SRVR_PORT_NUM = 9999;
         
@@ -30,6 +36,30 @@ public class UDPClient {
         System.out.println("result: " + receiveData);
 
         ds.close();
+    }
+
+    private static HashMap<String, String> createParamsHashMap(String[] args, String[] acceptedParams) throws IllegalArgumentException {
+        if (args.length % 2 != 0) throw new IllegalArgumentException("All parameters must be passed with the format \'--parameter-name value\'.");
+
+        HashMap<String, String> returnMap = new HashMap<>();
+
+        for (int i = 0; i < args.length; i += 2) {
+            if (!args[i].startsWith("--")) {
+                continue;
+            }
+
+            // Remove leading "--"
+            String paramName = args[i].substring(2);
+            for (String a : acceptedParams) {
+                if (a.equals(paramName)) {
+                    String paramValue = args[i+1];
+                    returnMap.put(paramName, paramValue);
+                }
+            }
+        }
+
+        return returnMap;
+
     }
 
 }
