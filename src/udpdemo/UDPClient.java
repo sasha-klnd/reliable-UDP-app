@@ -59,7 +59,6 @@ public class UDPClient {
         System.out.println("\nPacket Body:");
         System.out.println(RESOURCE_NAME);
 
-
         // DECODE RECEIVED PACKET
         DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
         clientSocket.receive(receivePacket); 
