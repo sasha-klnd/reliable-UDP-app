@@ -1,14 +1,8 @@
 package udpdemo;
 
-import java.util.Map;
 import java.util.HashMap;
 import java.net.InetAddress;
 import java.net.DatagramSocket;
-import java.net.DatagramPacket;
-
-import java.util.Random;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 
 public class UDPClient {
 
@@ -19,55 +13,26 @@ public class UDPClient {
         // final InetAddress IP_ADDR = InetAddress.getLocalHost();
         // final int SRVR_PORT_NUM = 9999;
 
+        // Set by params
         final InetAddress SRVR_IP = InetAddress.getLocalHost();
         final short SRVR_PORT = 9999;
         final short MAX_SEG_SIZE = 512;
-        final String RESOURCE_NAME = "Paramore - This is Why.mp3";
-        byte seqNum = 0;
-        
+        final String RESOURCE_NAME = "crime-and-punishment.txt";
+
         DatagramSocket clientSocket = new DatagramSocket();
-        byte[] receiveBuffer = new byte[MAX_SEG_SIZE];
-
-        // BUILD PACKET
-        byte[] packetBody = RESOURCE_NAME.getBytes(StandardCharsets.UTF_8);
-        short payloadLength = (short) packetBody.length;
-
-        int connectionID = generateConnectionID();
-
-        byte[] sendPacketBytes = ByteBuffer.allocate(8 + payloadLength)
-            .putInt((int) connectionID)
-            .put((byte) seqNum)
-            .put(PacketType.REQUEST.code)
-            .putShort((short) payloadLength)
-            .put(packetBody, 0, payloadLength)
-            .array();
-
-        DatagramPacket sendPacket = new DatagramPacket(
-            sendPacketBytes, 
-            sendPacketBytes.length, 
+        
+        ClientSession session = new ClientSession(
+            clientSocket, 
             SRVR_IP, 
-            SRVR_PORT
+            SRVR_PORT, 
+            RESOURCE_NAME, 
+            MAX_SEG_SIZE
         );
-        clientSocket.send(sendPacket);
 
-        System.out.println("[CLIENT] Sent packet.");
-        System.out.println("[CLIENT] Packet Info:");
-        System.out.println(" - Connection ID: " + connectionID);
-        System.out.println(" - Sequence Number: " + seqNum);
-        System.out.println(" - Type: " + PacketType.REQUEST);
-        System.out.println(" - Payload Length: " + payloadLength);
-        System.out.println("\nPacket Body:");
-        System.out.println(RESOURCE_NAME);
-
-        // DECODE RECEIVED PACKET
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
-        clientSocket.receive(receivePacket); 
-
-        byte[] receivePacketBytes = receivePacket.getData();
-
-
-        // System.out.println("result: " + receiveData);
-
+        System.out.println("Created a session for " + RESOURCE_NAME);
+        session.run();
+        System.out.println("Successfully received " + RESOURCE_NAME);
+        
         clientSocket.close();
     }
 
@@ -93,11 +58,6 @@ public class UDPClient {
 
         return returnMap;
 
-    }
-
-    private static int generateConnectionID() {
-        Random rand = new Random();
-        return (int) rand.nextInt(0, Integer.MAX_VALUE);
     }
 
 }

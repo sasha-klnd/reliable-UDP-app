@@ -1,10 +1,11 @@
-package udpdemo;
+package protocol;
 
 public enum PacketType {
     REQUEST ((byte) 0),
     ACK     ((byte) 1),
     DATA    ((byte) 2),
-    ERROR   ((byte) 3);
+    ERROR   ((byte) 3),
+    EOF     ((byte) 4);
 
     public final byte code;
 

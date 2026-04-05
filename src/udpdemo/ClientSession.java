@@ -1,0 +1,144 @@
+package udpdemo;
+
+import java.net.InetAddress;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.nio.charset.StandardCharsets;
+import java.io.FileOutputStream;
+import java.util.Random;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.io.IOException;
+import java.io.FileNotFoundException;
+
+import protocol.Packet;
+import protocol.PacketBuilder;
+import protocol.PacketParser;
+import protocol.PacketType;
+import protocol.Utils;
+
+public class ClientSession {
+    
+    private final DatagramSocket socket;
+    private final InetAddress serverAddress;
+    private final int serverPort;
+    private final int connectionId;
+    private final String resourceName;
+    private final short maxSegmentSize;
+
+    private byte expectedSeqNum = 0;
+    private boolean endOfTransfer = false;
+    private FileOutputStream fos = null;
+    
+    public ClientSession(DatagramSocket socket, InetAddress serverAddress, int serverPort, String resourceName, short maxSegmentSize) {
+        this.socket = socket;
+        this.serverAddress = serverAddress;
+        this.serverPort = serverPort;
+        this.connectionId = generateConnectionID();
+        this.resourceName = resourceName;
+        this.maxSegmentSize = maxSegmentSize;
+    }
+
+    public void run() throws IOException {
+        sendRequest();
+        receiveData();
+    }
+
+    private void sendRequest() throws IOException {
+        String requestMessage = "mss=" + maxSegmentSize + ",resourcename=\"" + resourceName + "\"";
+        byte[] body = requestMessage.getBytes(StandardCharsets.UTF_8);
+        byte[] packet = PacketBuilder.build(
+            connectionId, 
+            expectedSeqNum,
+            PacketType.REQUEST, 
+            body
+        );
+        socket.send(new DatagramPacket(
+            packet, 
+            packet.length,
+            serverAddress,
+            serverPort
+        ));
+        System.out.println("[SESSION] Sent request for " + resourceName + " with sequence number " + expectedSeqNum);
+    }
+
+    private void receiveData() throws IOException {
+        try {
+            Path outputPath = Paths.get("")
+                .toAbsolutePath()
+                .resolve("output")
+                .resolve(resourceName);
+
+            fos = new FileOutputStream(outputPath.toString());
+            System.out.println("[SESSION] Created output file at " + outputPath.toString());
+        } catch (FileNotFoundException e) {
+            System.out.println(e.getMessage());
+            return;
+        }
+
+
+        byte[] receiveBuffer = new byte[maxSegmentSize];
+        DatagramPacket receiveDatagram = new DatagramPacket(receiveBuffer, receiveBuffer.length);
+
+        while (!endOfTransfer) {
+            socket.receive(receiveDatagram);
+
+            Packet receivePacket = PacketParser.parse(receiveDatagram);
+
+            if (!Utils.isInOrder(receivePacket.getSequenceNumber(), expectedSeqNum)) {
+                sendError("Received an out-of-order packet. Expected sequence number: " + expectedSeqNum);
+                continue;
+            } else if (!(receivePacket.getConnectionId() == connectionId)) {
+                sendError("Received packet with incorrect connnection ID.");
+                continue;
+            } else if (receivePacket.getPacketType() == PacketType.EOF) {
+                sendAck();
+                endOfTransfer = true;
+                continue;
+            }
+
+            fos.write(receivePacket.getBody());
+            sendAck();
+        }
+    }
+    
+    private void sendAck() throws IOException {
+        byte[] body = new byte[0];
+        byte[] packet = PacketBuilder.build(
+            connectionId, 
+            expectedSeqNum,
+            PacketType.ACK,
+            body
+        );
+        socket.send(new DatagramPacket(
+            packet, 
+            packet.length,
+            serverAddress,
+            serverPort
+        ));
+        
+        System.out.println("[SESSION] Sent ACK for packet with sequence number " + expectedSeqNum);
+        expectedSeqNum = Utils.nextSequenceNumber(expectedSeqNum);
+    }
+
+    private void sendError(String message) throws IOException {
+        byte[] body = message.getBytes(StandardCharsets.UTF_8);
+        byte[] packet = PacketBuilder.build(
+            connectionId, 
+            expectedSeqNum,
+            PacketType.REQUEST, 
+            body
+        );
+        socket.send(new DatagramPacket(
+            packet, 
+            packet.length,
+            serverAddress,
+            serverPort
+        ));
+    }
+
+    private static int generateConnectionID() {
+        Random rand = new Random();
+        return (int) rand.nextInt(0, Integer.MAX_VALUE);
+    }
+}
