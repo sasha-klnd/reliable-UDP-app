@@ -1,6 +1,5 @@
 package udpdemo;
 
-import java.util.HashMap;
 import java.net.InetAddress;
 import java.net.DatagramSocket;
 
