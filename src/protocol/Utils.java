@@ -1,7 +1,5 @@
 package protocol;
 
-import java.util.Random;
-
 public class Utils {
     
     public static byte nextSequenceNumber(byte current) {
