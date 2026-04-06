@@ -94,8 +94,7 @@ public class ServerSession {
             Packet response = PacketParser.parse(receiveDatagram);
 
             if (response.getConnectionId() != connectionId) {
-                sendError("Incorrect connection ID");
-                continue;
+                continue;   // Discard packet and continue listening
             }
 
             if (response.getPacketType() != PacketType.ACK) {
