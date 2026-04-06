@@ -85,11 +85,10 @@ public class ClientSession {
                 fos = new FileOutputStream(outputPath.toString());
             }
 
-            if (!Utils.isInOrder(receivePacket.getSequenceNumber(), expectedSeqNum)) {
+            if (!(receivePacket.getConnectionId() == connectionId)) {
+                continue;   // Discard packet and keep waiting
+            } else if (!Utils.isInOrder(receivePacket.getSequenceNumber(), expectedSeqNum)) {
                 sendError("Received an out-of-order packet. Expected sequence number: " + expectedSeqNum);
-                continue;
-            } else if (!(receivePacket.getConnectionId() == connectionId)) {
-                sendError("Received packet with incorrect connnection ID.");
                 continue;
             } else if (receivePacket.getPacketType() == PacketType.EOF) {
                 sendAck();
