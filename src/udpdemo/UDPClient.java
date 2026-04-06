@@ -40,7 +40,7 @@ public class UDPClient {
             maxSegmentSize
         );
 
-        System.out.println("Created a session for " + resourceName);
+        System.out.println("[CLIENT] Creating a transfer session for " + resourceName);
         session.run();
         
         clientSocket.close();

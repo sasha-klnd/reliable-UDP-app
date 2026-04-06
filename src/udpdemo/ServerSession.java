@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
@@ -36,13 +37,15 @@ public class ServerSession {
 
     public void run(FileInputStream fis) throws IOException {
         sendData(fis);
-        System.out.println("[SESSION] Closing session");
+        linger();
     }
     
     private void sendData(FileInputStream fis) throws IOException {
         short maxBodySize = (short) (maxSegmentSize - 8);
         byte[] bodyBuffer = new byte[maxBodySize];
         int bytesRead;
+
+        socket.setSoTimeout(5000);
 
         while ((bytesRead = fis.read(bodyBuffer)) != -1) {
             byte[] body = Arrays.copyOf(bodyBuffer, bytesRead);
@@ -90,26 +93,31 @@ public class ServerSession {
         DatagramPacket receiveDatagram = new DatagramPacket(receiveBuffer, receiveBuffer.length);
         
         while (true) {
-            socket.receive(receiveDatagram);
-            Packet response = PacketParser.parse(receiveDatagram);
+            try {
+                socket.receive(receiveDatagram);
+                Packet response = PacketParser.parse(receiveDatagram);
+    
+                if (response.getConnectionId() != connectionId || response.getPacketType() != PacketType.ACK) {
+                    continue;   // Discard packet and continue waiting
+                }
+    
+                if (response.getSequenceNumber() == expectedSeqNum) {
+                    expectedSeqNum = Utils.nextSequenceNumber(expectedSeqNum);
+                    return;
+                }
 
-            if (response.getConnectionId() != connectionId) {
-                continue;   // Discard packet and continue listening
-            }
+                if (response.getSequenceNumber() == Utils.previousSequenceNumber(expectedSeqNum)) {
+                    // Duplicate ACK, the server should resend the last data packet
+                    resend();
+                    continue;
+                }
 
-            if (response.getPacketType() != PacketType.ACK) {
-                sendError("Expected ACK");
-                continue;
-            }
-
-            if (response.getSequenceNumber() != expectedSeqNum) {
-                sendError("Incorrect sequence number");
+                // Received a non-duplicate unexpected sequence number
+                sendError("Unexpected sequence number.");
+            } catch (SocketTimeoutException e) {
+                System.out.println("[SESSION] ACK timeout, resending last packet");
                 resend();
-                continue;
             }
-
-            expectedSeqNum = Utils.nextSequenceNumber(expectedSeqNum);
-            return;
         }
     }
 
@@ -138,5 +146,34 @@ public class ServerSession {
             clientAddress,
             clientPort
         ));
+    }
+
+    private void linger() throws IOException {
+        System.out.println("[SESSION] Complete, entering linger state");
+        socket.setSoTimeout(10_000);
+
+        byte[] receiveBuffer = new byte[maxSegmentSize];
+        DatagramPacket receiveDatagram = new DatagramPacket(receiveBuffer, receiveBuffer.length);
+
+        while (true) {
+            try {
+                socket.receive(receiveDatagram);
+                Packet response = PacketParser.parse(receiveDatagram);
+
+                if (response.getConnectionId() != connectionId) { 
+                    continue; 
+                }
+
+                if (response.getPacketType() == PacketType.ACK &&
+                    response.getSequenceNumber() == Utils.previousSequenceNumber(expectedSeqNum)) {
+                    System.out.println("[SESSION] Duplicate ACK during linger, resending EOF");
+                    resend();
+                    continue;
+                }
+            } catch (SocketTimeoutException e) {
+                System.out.println("[SESSION] Linger timeout, closing session.");
+                return;
+            }
+        }
     }
 }

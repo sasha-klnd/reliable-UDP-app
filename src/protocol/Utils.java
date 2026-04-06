@@ -6,8 +6,8 @@ public class Utils {
         return (byte) ((current + 1) % 128);
     }
 
-    public static boolean isInOrder(byte received, byte expected) {
-        return received == expected;
+    public static byte previousSequenceNumber(byte current) {
+        return (byte) ((current - 1 + 128) % 128);
     }
 
 }

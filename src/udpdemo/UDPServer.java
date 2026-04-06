@@ -22,7 +22,7 @@ public class UDPServer {
 
         byte[] requestBuffer = new byte[512];
         DatagramPacket requestDatagram = new DatagramPacket(requestBuffer, requestBuffer.length);
-        System.out.println("Awaiting request from client.");
+        System.out.println("[SERVER] Awaiting request from client.");
         serverSocket.receive(requestDatagram);
 
 
@@ -49,7 +49,7 @@ public class UDPServer {
 
         try {   
             fis = new FileInputStream(resourcePath.toString());
-            System.out.println("[SERVER] Successfully located the resource.");
+            System.out.println("[SERVER] Successfully located resource " + resourceName);
         } catch (FileNotFoundException e) {
             System.out.println("[SERVER] Requested resource could not be found.");
             
@@ -80,9 +80,9 @@ public class UDPServer {
             requestPacket.getSequenceNumber()
         );
 
-        System.out.println("Starting session.");
+        System.out.println("[SERVER] Starting new transfer session for " + resourceName + "\n");
         session.run(fis);
-        System.out.println("Successfully transferred resource " + resourceName);
+        System.out.println("\n[SERVER] Successfully transferred resource " + resourceName);
 
         fis.close();
         serverSocket.close();

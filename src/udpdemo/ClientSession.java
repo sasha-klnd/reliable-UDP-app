@@ -1,6 +1,7 @@
 package udpdemo;
 
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,7 @@ public class ClientSession {
     private byte expectedSeqNum = 0;
     private boolean endOfTransfer = false;
     private FileOutputStream fos = null;
+    private byte[] lastAckSent = null;
     
     public ClientSession(DatagramSocket socket, InetAddress serverAddress, int serverPort, String resourceName, short maxSegmentSize) {
         this.socket = socket;
@@ -65,41 +67,55 @@ public class ClientSession {
         byte[] receiveBuffer = new byte[maxSegmentSize];
         DatagramPacket receiveDatagram = new DatagramPacket(receiveBuffer, receiveBuffer.length);
 
+        socket.setSoTimeout(5000);
+        
         while (!endOfTransfer) {
-            socket.receive(receiveDatagram);
-
-            Packet receivePacket = PacketParser.parse(receiveDatagram);
-
-            if (receivePacket.getPacketType() == PacketType.ERROR) {
-                String errorMessage = new String(receivePacket.getBody(), StandardCharsets.UTF_8);
-                System.err.println("Server error: " + errorMessage);
-                return;
-            }
-
-            if (fos == null) {
-                Path outputPath = Paths.get("")
-                    .toAbsolutePath()
-                    .resolve("output")
-                    .resolve(resourceName);
-
-                fos = new FileOutputStream(outputPath.toString());
-            }
-
-            if (!(receivePacket.getConnectionId() == connectionId)) {
-                continue;   // Discard packet and keep waiting
-            } else if (!Utils.isInOrder(receivePacket.getSequenceNumber(), expectedSeqNum)) {
-                sendError("Received an out-of-order packet. Expected sequence number: " + expectedSeqNum);
-                continue;
-            } else if (receivePacket.getPacketType() == PacketType.EOF) {
-                sendAck();
-                endOfTransfer = true;
+            try {
+                socket.receive(receiveDatagram);
+    
+                Packet receivePacket = PacketParser.parse(receiveDatagram);
+    
+                if (receivePacket.getPacketType() == PacketType.ERROR) {
+                    String errorMessage = new String(receivePacket.getBody(), StandardCharsets.UTF_8);
+                    System.err.println("Server error: " + errorMessage);
+                    return;
+                }
+    
+                if (!(receivePacket.getConnectionId() == connectionId)) {
+                    continue;   // Discard packet and keep waiting
+                } 
                 
-                System.out.println("[SESSION] Successfully received " + resourceName);
-                continue;
+                if (receivePacket.getSequenceNumber() == expectedSeqNum) {
+                    if (fos == null) {
+                        Path outputPath = Paths.get("")
+                            .toAbsolutePath()
+                            .resolve("output")
+                            .resolve(resourceName);
+        
+                        fos = new FileOutputStream(outputPath.toString());
+                    }
+                    
+                    fos.write(receivePacket.getBody());
+                    sendAck();
+                    expectedSeqNum = Utils.nextSequenceNumber(expectedSeqNum);
+                } else if (receivePacket.getSequenceNumber() == Utils.previousSequenceNumber(expectedSeqNum)) {
+                    // Duplicate data packet, the client should resend the last ACK
+                    System.out.println("[SESSION] Received duplicate packet, resending ACK");
+                    resend();
+                } else {
+                    sendError("Unexpected sequence number");
+                }
+                
+                if (receivePacket.getPacketType() == PacketType.EOF) {
+                    sendAck();
+                    endOfTransfer = true;
+                    
+                    System.out.println("[SESSION] Successfully received " + resourceName);
+                }
+            } catch (SocketTimeoutException e) {
+                System.out.println("[SESSION] Timeout waiting for DATA, resending last ACK");
+                resend();
             }
-
-            fos.write(receivePacket.getBody());
-            sendAck();
         }
     }
     
@@ -117,9 +133,19 @@ public class ClientSession {
             serverAddress,
             serverPort
         ));
+
+        lastAckSent = packet;
         
         System.out.println("[SESSION] Sent ACK for packet with sequence number " + expectedSeqNum);
-        expectedSeqNum = Utils.nextSequenceNumber(expectedSeqNum);
+    }
+
+    private void resend() throws IOException {
+        socket.send(new DatagramPacket(
+            lastAckSent, 
+            lastAckSent.length,
+            serverAddress,
+            serverPort
+        ));
     }
 
     private void sendError(String message) throws IOException {
