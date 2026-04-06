@@ -9,7 +9,6 @@ import java.util.Random;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.io.IOException;
-import java.io.FileNotFoundException;
 
 import protocol.Packet;
 import protocol.PacketBuilder;
@@ -63,20 +62,6 @@ public class ClientSession {
     }
 
     private void receiveData() throws IOException {
-        try {
-            Path outputPath = Paths.get("")
-                .toAbsolutePath()
-                .resolve("output")
-                .resolve(resourceName);
-
-            fos = new FileOutputStream(outputPath.toString());
-            System.out.println("[SESSION] Created output file at " + outputPath.toString());
-        } catch (FileNotFoundException e) {
-            System.out.println(e.getMessage());
-            return;
-        }
-
-
         byte[] receiveBuffer = new byte[maxSegmentSize];
         DatagramPacket receiveDatagram = new DatagramPacket(receiveBuffer, receiveBuffer.length);
 
@@ -84,6 +69,21 @@ public class ClientSession {
             socket.receive(receiveDatagram);
 
             Packet receivePacket = PacketParser.parse(receiveDatagram);
+
+            if (receivePacket.getPacketType() == PacketType.ERROR) {
+                String errorMessage = new String(receivePacket.getBody(), StandardCharsets.UTF_8);
+                System.err.println("Server error: " + errorMessage);
+                return;
+            }
+
+            if (fos == null) {
+                Path outputPath = Paths.get("")
+                    .toAbsolutePath()
+                    .resolve("output")
+                    .resolve(resourceName);
+
+                fos = new FileOutputStream(outputPath.toString());
+            }
 
             if (!Utils.isInOrder(receivePacket.getSequenceNumber(), expectedSeqNum)) {
                 sendError("Received an out-of-order packet. Expected sequence number: " + expectedSeqNum);
@@ -94,6 +94,8 @@ public class ClientSession {
             } else if (receivePacket.getPacketType() == PacketType.EOF) {
                 sendAck();
                 endOfTransfer = true;
+                
+                System.out.println("[SESSION] Successfully received " + resourceName);
                 continue;
             }
 

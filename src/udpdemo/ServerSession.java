@@ -1,14 +1,11 @@
 package udpdemo;
 
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 
 import protocol.Packet;
@@ -25,7 +22,6 @@ public class ServerSession {
     private final short maxSegmentSize;
     private byte expectedSeqNum;
     
-    private FileInputStream fis = null;
     private byte[] lastPacketSent = null;
 
     public ServerSession(DatagramSocket socket, InetAddress clientAddress, int clientPort,
@@ -38,24 +34,7 @@ public class ServerSession {
         this.expectedSeqNum = expectedSeqNum;
     }
 
-    public void run(String resourceName) throws IOException {
-        System.out.println("[SESSION] Received request for " + resourceName);
-        
-        Path resourcePath = Paths.get("")
-            .toAbsolutePath()
-            .resolve("resources")
-            .resolve(resourceName);
-
-        try {   
-            fis = new FileInputStream(resourcePath.toString());
-            System.out.println("[SESSION] Successfully located the resource.");
-        } catch (FileNotFoundException e) {
-            System.out.println("[SESSION] Requested resource could not be found.");
-            sendError("The requested resource could not be found.");
-            fis.close();
-            return;
-        }
-
+    public void run(FileInputStream fis) throws IOException {
         sendData(fis);
         System.out.println("[SESSION] Closing session");
     }

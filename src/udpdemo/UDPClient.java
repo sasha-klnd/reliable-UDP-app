@@ -42,7 +42,6 @@ public class UDPClient {
 
         System.out.println("Created a session for " + resourceName);
         session.run();
-        System.out.println("Successfully received " + resourceName);
         
         clientSocket.close();
     }
