@@ -1,4 +1,4 @@
-package udpdemo;
+package processes;
 
 import java.net.InetAddress;
 import java.net.DatagramSocket;
