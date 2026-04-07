@@ -16,6 +16,7 @@ import protocol.PacketType;
 public class UDPServer {
 
     public static void main(String[] args) throws Exception {
+        System.out.println("Working directory: " + Paths.get("").toAbsolutePath());
 
         final int SERVER_PORT = 9999;
         DatagramSocket serverSocket = new DatagramSocket(SERVER_PORT);
@@ -42,8 +43,8 @@ public class UDPServer {
         System.out.println("[SERVER] Received request for " + resourceName);
         
         FileInputStream fis = null;
-        Path resourcePath = Paths.get("")
-            .toAbsolutePath()
+        String projectRoot = System.getProperty("project.root", Paths.get("").toAbsolutePath().toString());
+        Path resourcePath = Paths.get(projectRoot)
             .resolve("resources")
             .resolve(resourceName);
 

@@ -87,8 +87,8 @@ public class ClientSession {
                 
                 if (receivePacket.getSequenceNumber() == expectedSeqNum) {
                     if (fos == null) {
-                        Path outputPath = Paths.get("")
-                            .toAbsolutePath()
+                        String projectRoot = System.getProperty("project.root", Paths.get("").toAbsolutePath().toString());
+                        Path outputPath = Paths.get(projectRoot)
                             .resolve("output")
                             .resolve(resourceName);
         
