@@ -67,7 +67,7 @@ public class ClientSession {
         byte[] receiveBuffer = new byte[maxSegmentSize];
         DatagramPacket receiveDatagram = new DatagramPacket(receiveBuffer, receiveBuffer.length);
 
-        socket.setSoTimeout(5000);
+        socket.setSoTimeout(150);
         
         while (!endOfTransfer) {
             try {
@@ -113,8 +113,11 @@ public class ClientSession {
                     System.out.println("[SESSION] Successfully received " + resourceName);
                 }
             } catch (SocketTimeoutException e) {
-                System.out.println("[SESSION] Timeout waiting for DATA, resending last ACK");
-                resend();
+                if (lastAckSent != null) {
+                    System.out.println("[SESSION] Timeout waiting for DATA, resending last ACK");
+                    resend();
+                }
+                else continue;
             }
         }
     }

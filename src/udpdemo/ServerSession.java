@@ -45,7 +45,7 @@ public class ServerSession {
         byte[] bodyBuffer = new byte[maxBodySize];
         int bytesRead;
 
-        socket.setSoTimeout(5000);
+        socket.setSoTimeout(150);
 
         while ((bytesRead = fis.read(bodyBuffer)) != -1) {
             byte[] body = Arrays.copyOf(bodyBuffer, bytesRead);
